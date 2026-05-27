@@ -1,6 +1,6 @@
 {
   "name": "Poké-Gear Pokémon",
-  "description": "Um relógio digital retrô, alarme, cronômetro e temporizador de ovos no estilo Poké-Gear de Pokémon.",
+  "description": "Um relógio digital retrô, alarme, cronômetro evolutivo da Eevee com dash e temporizador de ovos no estilo Poké-Gear de Pokémon.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

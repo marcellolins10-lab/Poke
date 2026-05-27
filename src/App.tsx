@@ -14,13 +14,14 @@ import {
   isSoundEnabled, 
   playPokeFluteMelody, 
   stopAlarmFluteLoop,
-  stopAllSounds
+  stopAllSounds,
+  playSwoosh
 } from './utils/audio';
 
 // Visual sprites
 import PikachuClock from './components/PikachuClock';
 import SnorlaxAlarm from './components/SnorlaxAlarm';
-import ArcanineStopwatch from './components/ArcanineStopwatch';
+import EeveeStopwatch from './components/EeveeStopwatch';
 import TogepiTimer from './components/TogepiTimer';
 
 export default function App() {
@@ -65,6 +66,7 @@ export default function App() {
   const stopwatchElapsedRef = useRef<number>(0);
   const [laps, setLaps] = useState<LapTime[]>([]);
   const [lapTriggerCount, setLapTriggerCount] = useState<number>(0);
+  const [dashTriggerCount, setDashTriggerCount] = useState<number>(0);
 
   // --- Timer Mode States ---
   const [timerRemaining, setTimerRemaining] = useState<number>(10000); // Default to 10 seconds (for quick hatch demo!)
@@ -517,6 +519,16 @@ export default function App() {
     }
   };
 
+  const handleStopwatchDash = () => {
+    playSwoosh();
+    setDashTriggerCount(prev => prev + 1);
+    setStopwatchTime(prev => {
+      const newTime = prev + 5000;
+      stopwatchElapsedRef.current = stopwatchElapsedRef.current + 5000;
+      return newTime;
+    });
+  };
+
   const handleBPress = () => {
     setIsBActive(true);
     setTimeout(() => setIsBActive(false), 120);
@@ -531,6 +543,11 @@ export default function App() {
     // B always acts as VOLTAR (exit/return to CLOCK)!
     if (isAlarmTriggered) {
       handleSilenceSnorlax();
+      return;
+    }
+
+    if (activeMode === 'STOPWATCH') {
+      handleStopwatchDash();
       return;
     }
 
@@ -838,9 +855,11 @@ export default function App() {
                         />
                       )}
                       {activeMode === 'STOPWATCH' && (
-                        <ArcanineStopwatch 
+                        <EeveeStopwatch 
                           isRunning={stopwatchRunning} 
                           lapTriggerCount={lapTriggerCount} 
+                          currentTime={stopwatchTime}
+                          dashTriggerCount={dashTriggerCount}
                         />
                       )}
                       {activeMode === 'TIMER' && (
@@ -1354,7 +1373,7 @@ export default function App() {
               {activeMode === 'STOPWATCH' && (
                 <div className="space-y-4">
                   <p className="text-xs text-stone-300 leading-relaxed">
-                    Assista ao magnífico <strong>Arcanine</strong> correr em alta velocidade! Os milissegundos aceleram a animação das chamas saindo de trás dele.
+                    Acompanhe a adorável <strong>Eevee</strong> correr e evoluir a cada 20 segundos! Pressione o botão físico <strong>B</strong> do console para ativar um incrível impulso de dash, correr super rápido e avançar 5 segundos no cronômetro.
                   </p>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -1547,7 +1566,7 @@ export default function App() {
                 { key: 'cascade', name: 'Cascata', icon: '💧', task: 'Chocar o Ovo de Togepi' },
                 { key: 'thunder', name: 'Trovão', icon: '⚡', task: 'Ativar Faíscas do Pikachu' },
                 { key: 'rainbow', name: 'Arco-Íris', icon: '🌈', task: 'Registrar um Novo Alarme' },
-                { key: 'soul', name: 'Alma', icon: '💜', task: 'Gravar Volta do Arcanine' },
+                { key: 'soul', name: 'Alma', icon: '💜', task: 'Gravar Volta com a Eevee' },
                 { key: 'marsh', name: 'Pântano', icon: '👁️', task: 'Simular o Modo Noturno' },
                 { key: 'volcano', name: 'Vulcão', icon: '🔥', task: 'Acalmar Snorlax irritado' },
                 { key: 'earth', name: 'Terra', icon: '🗺️', task: 'Explorar todos os 4 Modos' }
