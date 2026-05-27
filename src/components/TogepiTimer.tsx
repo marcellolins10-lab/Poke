@@ -13,6 +13,7 @@ interface TogepiTimerProps {
   isActive: boolean;
   isComplete: boolean;
   onReset: () => void;
+  onEggClick?: () => void;
 }
 
 export default function TogepiTimer({
@@ -21,6 +22,7 @@ export default function TogepiTimer({
   isActive,
   isComplete,
   onReset,
+  onEggClick,
 }: TogepiTimerProps) {
   const [confetti, setConfetti] = useState<{ id: number; x: number; y: number; color: string; rotation: number; size: number }[]>([]);
 
@@ -212,7 +214,12 @@ export default function TogepiTimer({
                 repeat: Infinity,
                 ease: 'easeInOut',
               }}
-              className="flex flex-col items-center justify-center mt-3"
+              whileTap={{ scale: 0.9, rotate: [-15, 15, -15, 15, 0] }}
+              onClick={() => {
+                if (onEggClick) onEggClick();
+              }}
+              className="flex flex-col items-center justify-center mt-3 cursor-pointer"
+              title="Clique para sacudir o ovo!"
             >
               <svg width="100" height="110" viewBox="0 0 100 110" className="w-24 h-24 drop-shadow-[0_2px_4px_rgba(40,64,40,0.1)]">
                 {/* Large Egg body */}
@@ -237,16 +244,16 @@ export default function TogepiTimer({
               </svg>
 
               {ratio < 0.2 && isRocking ? (
-                <div className="font-press-start text-[7px] text-red-650 animate-pulse mt-2 font-bold bg-amber-200/50 px-1 rounded">
-                  ⚠️ O OVO ESTÁ RACHANDO!
+                <div className="font-press-start text-[6px] text-red-650 animate-pulse mt-2 font-bold bg-amber-200/50 px-1 rounded text-center">
+                  ⚠️ RACHANDO! CLIQUE/SACUDA!
                 </div>
               ) : isActive ? (
-                <div className="font-press-start text-[7px] text-emerald-700/80 mt-2 font-bold">
-                  INCUBANDO...
+                <div className="font-press-start text-[6px] text-emerald-700/80 mt-2 font-bold text-center animate-pulse">
+                  CLIQUE PARA SACUDIR COLO
                 </div>
               ) : (
-                <div className="font-press-start text-[7px] text-emerald-800/60 mt-2">
-                  O OVO ESTÁ QUENTINHO
+                <div className="font-press-start text-[6px] text-emerald-850/70 mt-2 text-center">
+                  TOQUE NO OVO PARA AQUECER!
                 </div>
               )}
             </motion.div>

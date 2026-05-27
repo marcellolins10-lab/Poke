@@ -13,7 +13,8 @@ import {
   toggleSound, 
   isSoundEnabled, 
   playPokeFluteMelody, 
-  stopAlarmFluteLoop 
+  stopAlarmFluteLoop,
+  stopAllSounds
 } from './utils/audio';
 
 // Visual sprites
@@ -92,6 +93,44 @@ export default function App() {
 
   // Track explored tabs
   const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set(['CLOCK']));
+
+  // --- Configurable Trainer block ---
+  const [trainerName, setTrainerName] = useState<string>(() => localStorage.getItem('poke_trainer_name') || 'ASH KETCHUM');
+  const [isEditingTrainer, setIsEditingTrainer] = useState<boolean>(false);
+
+  useEffect(() => {
+    localStorage.setItem('poke_trainer_name', trainerName);
+  }, [trainerName]);
+
+  // --- Accelerometer Shaking Sensor Simulation ---
+  useEffect(() => {
+    let lastUpdate = 0;
+    const handleMotionEvent = (event: DeviceMotionEvent) => {
+      const now = Date.now();
+      // Limit checking rate to avoid over-triggering
+      if (now - lastUpdate < 200) return;
+
+      const acc = event.accelerationIncludingGravity || event.acceleration;
+      if (!acc) return;
+
+      const x = acc.x || 0;
+      const y = acc.y || 0;
+      const z = acc.z || 0;
+
+      const force = Math.sqrt(x * x + y * y + z * z);
+      if (force > 15) { // 15 is standard shake threshold value
+        lastUpdate = now;
+        if (activeMode === 'TIMER' && timerRunningState && !timerCompleted) {
+          adjustTimerTime(-2); // reduce timer by 2 seconds to hatch faster!
+        }
+      }
+    };
+
+    window.addEventListener('devicemotion', handleMotionEvent);
+    return () => {
+      window.removeEventListener('devicemotion', handleMotionEvent);
+    };
+  }, [activeMode, timerRunningState, timerCompleted]);
 
   // Toggle night mode simulation helper
   const isNightTime = useMemo(() => {
@@ -395,12 +434,68 @@ export default function App() {
     }
   };
 
+  // --- D-pad Adjustment Helpers ---
+  const adjustAlarmTimeByDPad = (changeType: 'hour' | 'minute', amount: number) => {
+    const [hStr, mStr] = newAlarmTime.split(':');
+    let h = parseInt(hStr, 10);
+    let m = parseInt(mStr, 10);
+    if (changeType === 'hour') {
+      h = (h + amount + 24) % 24;
+    } else {
+      m = (m + amount + 60) % 60;
+    }
+    const newTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    setNewAlarmTime(newTime);
+  };
+
+  const adjustStopwatchTimeByDPad = (amountMs: number) => {
+    setStopwatchTime(prev => {
+      const newVal = Math.max(0, prev + amountMs);
+      stopwatchElapsedRef.current = newVal;
+      return newVal;
+    });
+  };
+
+  const handleDPadPress = (direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT') => {
+    playBeep(600, 0.05);
+    
+    switch (activeMode) {
+      case 'CLOCK':
+        if (direction === 'UP') setTimeOffsetMs(prev => prev + 3600000);   // +1h
+        if (direction === 'DOWN') setTimeOffsetMs(prev => prev - 3600000); // -1h
+        if (direction === 'RIGHT') setTimeOffsetMs(prev => prev + 60000);   // +1m
+        if (direction === 'LEFT') setTimeOffsetMs(prev => prev - 60000);   // -1m
+        break;
+
+      case 'ALARM':
+        if (direction === 'UP') adjustAlarmTimeByDPad('hour', 1);
+        if (direction === 'DOWN') adjustAlarmTimeByDPad('hour', -1);
+        if (direction === 'RIGHT') adjustAlarmTimeByDPad('minute', 1);
+        if (direction === 'LEFT') adjustAlarmTimeByDPad('minute', -1);
+        break;
+
+      case 'STOPWATCH':
+        if (direction === 'UP') adjustStopwatchTimeByDPad(1000);     // +1s
+        if (direction === 'DOWN') adjustStopwatchTimeByDPad(-1000);   // -1s
+        if (direction === 'RIGHT') adjustStopwatchTimeByDPad(10000);  // +10s
+        if (direction === 'LEFT') adjustStopwatchTimeByDPad(-10000);  // -10s
+        break;
+
+      case 'TIMER':
+        if (direction === 'UP') adjustTimerTime(60);     // +1 Min
+        if (direction === 'DOWN') adjustTimerTime(-60);   // -1 Min
+        if (direction === 'RIGHT') adjustTimerTime(10);   // +10 Seg
+        if (direction === 'LEFT') adjustTimerTime(-10);   // -10 Seg
+        break;
+    }
+  };
+
   // --- Physical Console Press Handlers (Synthesizing triggers) ---
   const handleAPress = () => {
     setIsAActive(true);
     setTimeout(() => setIsAActive(false), 120);
 
-    // Direct actions based on modules
+    // Direct actions based on modules - A always acts as CONFIRM!
     switch (activeMode) {
       case 'CLOCK':
         handleManualSparkTrigger();
@@ -409,8 +504,8 @@ export default function App() {
         if (isAlarmTriggered) {
           handleSilenceSnorlax();
         } else {
-          // Trigger a cute play beep
-          playBeep(880, 0.08, 'square');
+          // Confirm / Add the alarm configured on-screen!
+          handleAddAlarm();
         }
         break;
       case 'STOPWATCH':
@@ -426,37 +521,37 @@ export default function App() {
     setIsBActive(true);
     setTimeout(() => setIsBActive(false), 120);
 
-    switch (activeMode) {
-      case 'CLOCK':
-        // Toggle Day/Night Simulation
-        setSimulatedNight(prev => {
-          const toggled = !prev;
-          playBeep(toggled ? 300 : 900, 0.1);
-          setAchievements(p => ({ ...p, marsh: true }));
-          return toggled;
-        });
-        break;
-      case 'ALARM':
-        // Silence or play simple test melody
-        if (isAlarmTriggered) {
-          handleSilenceSnorlax();
-        } else {
-          playPokeFluteMelody();
-        }
-        break;
-      case 'STOPWATCH':
-        handleLapResetStopwatch();
-        break;
-      case 'TIMER':
-        handleResetTimer();
-        break;
+    // If Pikachu is currently sparking, pressing B silences all sounds and resets Pikachu without any noise!
+    if (triggerSpark) {
+      stopAllSounds();
+      setTriggerSpark(false);
+      return;
+    }
+
+    // B always acts as VOLTAR (exit/return to CLOCK)!
+    if (isAlarmTriggered) {
+      handleSilenceSnorlax();
+      return;
+    }
+
+    if (activeMode !== 'CLOCK') {
+      playBeep(450, 0.08);
+      setActiveMode('CLOCK');
+    } else {
+      // If we are already in CLOCK mode, B toggles day/night simulation as a quick shortcut!
+      setSimulatedNight(prev => {
+        const toggled = !prev;
+        playBeep(toggled ? 350 : 850, 0.1);
+        setAchievements(p => ({ ...p, marsh: true }));
+        return toggled;
+      });
     }
   };
 
-  // --- Keyboard Shortcuts Listener ---
+  // --- Keyboard Shortcuts & Arrow Listener ---
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Avoid firing hotkeys when typing in alarm label input fields!
+      // Avoid firing hotkeys when typing in trainer name or alarm label input fields!
       if (document.activeElement?.tagName === 'INPUT') {
         return;
       }
@@ -469,6 +564,25 @@ export default function App() {
         e.preventDefault();
         handleBPress();
       }
+      
+      // Hardware D-pad Arrow Keys mapping
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        handleDPadPress('UP');
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        handleDPadPress('DOWN');
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handleDPadPress('LEFT');
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        handleDPadPress('RIGHT');
+      }
+
       if (e.key === '1') selectMode('CLOCK');
       if (e.key === '2') selectMode('ALARM');
       if (e.key === '3') selectMode('STOPWATCH');
@@ -477,7 +591,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeMode, isAlarmTriggered, alarms, stopwatchRunning, stopwatchTime, timerRunningState, timerConfig, timerRemaining, timerCompleted]);
+  }, [activeMode, isAlarmTriggered, alarms, stopwatchRunning, stopwatchTime, timerRunningState, timerConfig, timerRemaining, timerCompleted, newAlarmTime, newAlarmLabel]);
 
 
   // Formatting numbers beautifully with 0 pads
@@ -508,17 +622,40 @@ export default function App() {
   }, [alarms]);
 
   return (
-    <div className="min-h-screen w-full bg-[#222] text-white flex flex-col items-center justify-between p-4 md:p-8 font-sans antialiased selection:bg-rose-900 selection:text-white select-none">
+    <div className="min-h-screen w-full bg-[#222] text-white flex flex-col items-center p-4 md:p-8 font-sans antialiased selection:bg-rose-900 selection:text-white overflow-y-auto h-auto">
       
       {/* HEADER BAR (Vibrant Palette Theme) */}
       <header className="w-full max-w-5xl flex flex-col sm:flex-row sm:items-center sm:justify-between border-b-[4px] border-[#8B0000] pb-4 mb-6 gap-4">
         {/* Trainer Stats blocks from Design HTML */}
         <div className="flex space-x-4">
-          <div className="bg-[#8B0000] px-4 py-2 rounded-xl border-2 border-white/20 shadow-md">
-            <span className="text-white/60 text-[9px] font-bold uppercase tracking-widest block font-press-start">Treinador</span>
-            <span className="text-white font-press-start text-[11px] font-extrabold">ASH KETCHUM</span>
+          <div 
+            onClick={() => setIsEditingTrainer(true)}
+            className="bg-[#8B0000] px-4 py-2 rounded-xl border-2 border-white/20 shadow-md hover:bg-[#990000] transition cursor-pointer select-none group"
+            title="Clique para alterar o nome do treinador"
+          >
+            <span className="text-white/60 text-[9px] font-bold uppercase tracking-widest block font-press-start flex items-center gap-1">
+              Treinador <span className="opacity-40 group-hover:opacity-100 transition-opacity">✏️</span>
+            </span>
+            {isEditingTrainer ? (
+              <input
+                type="text"
+                value={trainerName}
+                onChange={(e) => setTrainerName(e.target.value.toUpperCase())}
+                onBlur={() => setIsEditingTrainer(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') setIsEditingTrainer(false);
+                }}
+                autoFocus
+                className="bg-stone-900 text-amber-400 border border-amber-500 font-press-start text-[9px] font-extrabold w-36 px-1.5 py-0.5 mt-0.5 rounded focus:outline-none uppercase"
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <span className="text-white font-press-start text-[10px] font-extrabold block truncate max-w-[150px]">
+                {trainerName || 'ASH KETCHUM'}
+              </span>
+            )}
           </div>
-          <div className="bg-[#8B0000] px-4 py-2 rounded-xl border-2 border-white/20 shadow-md text-center">
+          <div className="bg-[#8B0000] px-4 py-2 rounded-xl border-2 border-white/20 shadow-md text-center select-none">
             <span className="text-white/60 text-[9px] font-bold uppercase tracking-widest block font-press-start">Nível</span>
             <span className="text-white font-press-start text-[11px] font-extrabold">99</span>
           </div>
@@ -713,6 +850,14 @@ export default function App() {
                           isActive={timerRunningState} 
                           isComplete={timerCompleted} 
                           onReset={handleResetTimer} 
+                          onEggClick={() => {
+                            if (timerRunningState && !timerCompleted) {
+                              adjustTimerTime(-2);
+                              playBeep(900, 0.05);
+                            } else if (!timerCompleted) {
+                              playBeep(300, 0.05);
+                            }
+                          }}
                         />
                       )}
                     </AnimatePresence>
@@ -908,11 +1053,40 @@ export default function App() {
                   <div className="absolute w-20 h-6 bg-stone-500 border-2 border-stone-900 rounded-sm shadow-sm" />
                   {/* Center cover */}
                   <div className="absolute w-6 h-6 bg-stone-600 rounded-sm z-10" />
-                  {/* Direction arrows */}
-                  <div className="absolute top-0 text-[10px] text-stone-800 font-extrabold select-none">▲</div>
-                  <div className="absolute bottom-0 text-[10px] text-stone-800 font-extrabold select-none">▼</div>
-                  <div className="absolute left-1 text-[10px] text-stone-800 font-extrabold select-none">◀</div>
-                  <div className="absolute right-1 text-[10px] text-stone-800 font-extrabold select-none">▶</div>
+                  
+                  {/* Direction arrows as fully clickable buttons for D-pad config */}
+                  <button
+                    type="button"
+                    onClick={() => handleDPadPress('UP')}
+                    className="absolute top-0 w-6 h-6 flex items-center justify-center text-[10px] text-stone-850 font-extrabold hover:text-amber-400 active:scale-90 transition-all cursor-pointer z-20 focus:outline-none"
+                    title="Configurar Cima (Ajustar hora / tempo)"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDPadPress('DOWN')}
+                    className="absolute bottom-0 w-6 h-6 flex items-center justify-center text-[10px] text-stone-850 font-extrabold hover:text-amber-400 active:scale-90 transition-all cursor-pointer z-20 focus:outline-none"
+                    title="Configurar Baixo (Ajustar hora / tempo)"
+                  >
+                    ▼
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDPadPress('LEFT')}
+                    className="absolute left-1 w-6 h-6 flex items-center justify-center text-[10px] text-stone-850 font-extrabold hover:text-amber-400 active:scale-90 transition-all cursor-pointer z-20 focus:outline-none"
+                    title="Configurar Esquerda (Ajustar min / seg)"
+                  >
+                    ◀
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDPadPress('RIGHT')}
+                    className="absolute right-1 w-6 h-6 flex items-center justify-center text-[10px] text-stone-850 font-extrabold hover:text-amber-400 active:scale-90 transition-all cursor-pointer z-20 focus:outline-none"
+                    title="Configurar Direita (Ajustar min / seg)"
+                  >
+                    ▶
+                  </button>
                 </div>
 
                 {/* 2. Start/Select decorative buttons */}

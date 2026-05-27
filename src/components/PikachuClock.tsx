@@ -36,7 +36,7 @@ export default function PikachuClock({ currentTime, triggerSpark, onSparkDone }:
       const timer = setTimeout(() => {
         setLightningParticles([]);
         onSparkDone();
-      }, 1200);
+      }, 2000);
 
       return () => clearTimeout(timer);
     }
@@ -46,6 +46,50 @@ export default function PikachuClock({ currentTime, triggerSpark, onSparkDone }:
     <div className="relative w-full h-full overflow-hidden flex flex-col justify-end items-center lcd-grid bg-[#8bac0f] text-[#0f380f] border-r border-[#1c301c]/30 select-none">
       {/* Dynamic Retro Sky Background */}
       <div className={`absolute inset-0 transition-colors duration-1000 ${isNight ? 'bg-indigo-950/20' : 'bg-sky-200/10'}`} />
+
+      {/* Floating Retro Sun or Moon Celestial Body */}
+      <div className="absolute top-4 left-6 pointer-events-none select-none z-10">
+        {isNight ? (
+          <motion.div
+            animate={{ 
+              y: [0, -3, 0],
+              scale: [1, 1.05, 1],
+            }}
+            transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+            className="flex items-center justify-center text-[#406840]"
+          >
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="opacity-35">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor" />
+            </svg>
+          </motion.div>
+        ) : (
+          <motion.div
+            animate={{ 
+              y: [0, -3, 0],
+              scale: [1, 1.05, 1],
+              rotate: [0, 360]
+            }}
+            transition={{
+              y: { duration: 5, repeat: Infinity, ease: 'easeInOut' },
+              scale: { duration: 5, repeat: Infinity, ease: 'easeInOut' },
+              rotate: { duration: 40, repeat: Infinity, ease: 'linear' }
+            }}
+            className="flex items-center justify-center text-[#406840]"
+          >
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="opacity-35">
+              <circle cx="12" cy="12" r="5" />
+              <line x1="12" y1="1" x2="12" y2="4" />
+              <line x1="12" y1="20" x2="12" y2="23" />
+              <line x1="1" y1="12" x2="4" y2="12" />
+              <line x1="20" y1="12" x2="23" y2="12" />
+              <line x1="4.22" y1="4.22" x2="6.34" y2="6.34" />
+              <line x1="17.66" y1="17.66" x2="19.78" y2="19.78" />
+              <line x1="4.22" y1="19.78" x2="6.34" y2="17.66" />
+              <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
+            </svg>
+          </motion.div>
+        )}
+      </div>
 
       {/* Retro Pixel Clouds (Floating) */}
       <div className="absolute top-4 left-0 w-full overflow-hidden pointer-events-none">

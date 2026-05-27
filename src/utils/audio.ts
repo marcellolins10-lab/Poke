@@ -6,8 +6,31 @@
 let audioCtx: AudioContext | null = null;
 let soundEnabled = true;
 
+let activeNodes: (OscillatorNode | AudioBufferSourceNode)[] = [];
+
+function registerActiveNode(node: OscillatorNode | AudioBufferSourceNode) {
+  activeNodes.push(node);
+  node.onended = () => {
+    activeNodes = activeNodes.filter(n => n !== node);
+  };
+}
+
+export function stopAllSounds() {
+  activeNodes.forEach(node => {
+    try {
+      node.stop();
+    } catch (e) {
+      // ignored
+    }
+  });
+  activeNodes = [];
+}
+
 export function toggleSound(): boolean {
   soundEnabled = !soundEnabled;
+  if (!soundEnabled) {
+    stopAllSounds();
+  }
   return soundEnabled;
 }
 
@@ -39,6 +62,7 @@ export function playBeep(pitch = 800, duration = 0.08, type: OscillatorType = 's
 
   try {
     const osc = ctx.createOscillator();
+    registerActiveNode(osc);
     const gainNode = ctx.createGain();
 
     osc.type = type;
@@ -74,6 +98,7 @@ export function playSwoosh() {
     }
 
     const noise = ctx.createBufferSource();
+    registerActiveNode(noise);
     noise.buffer = buffer;
 
     const filter = ctx.createBiquadFilter();
@@ -98,6 +123,7 @@ export function playSwoosh() {
 }
 
 // Pikachu cute pleasant call melody ("Pika-Pika!" with gentle high-pitched twinkle)
+// Designed to last exactly 2 seconds for active, satisfying retro rumble experience!
 export function playThunderbolt() {
   if (!soundEnabled) return;
   const ctx = getAudioContext();
@@ -105,6 +131,7 @@ export function playThunderbolt() {
 
   const playNote = (freq: number, start: number, duration: number, type: OscillatorType = 'sine', volume = 0.06) => {
     const osc = ctx.createOscillator();
+    registerActiveNode(osc);
     const gainNode = ctx.createGain();
     
     osc.type = type;
@@ -128,21 +155,46 @@ export function playThunderbolt() {
 
   try {
     // "Pi-" (high A5, triangle for warmth & vintage comfort)
-    playNote(880.00, 0.0, 0.08, 'triangle', 0.08);
+    playNote(880.00, 0.0, 0.15, 'triangle', 0.08);
     // "-ka" (mid F#5, triangle)
-    playNote(739.99, 0.09, 0.12, 'triangle', 0.06);
+    playNote(739.99, 0.16, 0.18, 'triangle', 0.06);
     
     // "Pi-" (high A5, triangle)
-    playNote(880.00, 0.23, 0.08, 'triangle', 0.08);
-    // "-ka!" (mid F#5, triangle)
-    playNote(739.99, 0.32, 0.15, 'triangle', 0.06);
+    playNote(880.00, 0.36, 0.15, 'triangle', 0.08);
+    // "-ka-" (mid F#5, triangle)
+    playNote(739.99, 0.52, 0.20, 'triangle', 0.06);
 
-    // Cute electric sparkling bells (delicate, high-pitched, soft-sine, staggered)
-    playNote(2093.00, 0.48, 0.15, 'sine', 0.02); // C7
-    playNote(2349.32, 0.55, 0.15, 'sine', 0.025); // D7
-    playNote(2637.02, 0.62, 0.25, 'sine', 0.03); // E7
+    // "-chuuu!" (B5 gliding down to E5, lasting a full second with retro vibrato)
+    const sparkDuration = 0.95; // From 0.75s to 1.70s
+    const osc = ctx.createOscillator();
+    registerActiveNode(osc);
+    const gainNode = ctx.createGain();
+    osc.type = 'triangle';
+    
+    const startTimeStamp = ctx.currentTime + 0.75;
+    osc.frequency.setValueAtTime(987.77, startTimeStamp);
+    osc.frequency.linearRampToValueAtTime(659.25, startTimeStamp + sparkDuration);
+    
+    gainNode.gain.setValueAtTime(0, startTimeStamp);
+    gainNode.gain.linearRampToValueAtTime(0.08, startTimeStamp + 0.05);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, startTimeStamp + sparkDuration);
+    
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    osc.start(startTimeStamp);
+    osc.stop(startTimeStamp + sparkDuration);
+
+    // Cute electric sparkling bells (delicate, high-pitched, soft-sine, staggered cascade up to 2.0s)
+    playNote(2093.00, 0.80, 0.15, 'sine', 0.02); // C7
+    playNote(2349.32, 0.95, 0.15, 'sine', 0.02); // D7
+    playNote(2637.02, 1.10, 0.15, 'sine', 0.02); // E7
+    playNote(3135.96, 1.25, 0.15, 'sine', 0.02); // G7
+    playNote(3520.00, 1.40, 0.15, 'sine', 0.025); // A7
+    playNote(4186.01, 1.55, 0.15, 'sine', 0.03); // C8
+    playNote(3135.96, 1.70, 0.15, 'sine', 0.02); // G7
+    playNote(2637.02, 1.82, 0.18, 'sine', 0.015); // E7
   } catch (error) {
-    playBeep(880, 0.2, 'sine');
+    playBeep(880, 2.0, 'sine');
   }
 }
 
@@ -155,6 +207,7 @@ export function playPokeFluteMelody() {
 
   const playNote = (freq: number, start: number, duration: number) => {
     const osc = ctx.createOscillator();
+    registerActiveNode(osc);
     const gainNode = ctx.createGain();
     
     osc.type = 'sine'; // Sine works beautifully for flutes
@@ -215,6 +268,7 @@ export function playLevelUp() {
 
   const playNote = (freq: number, start: number, duration: number, type: OscillatorType = 'sine') => {
     const osc = ctx.createOscillator();
+    registerActiveNode(osc);
     const gainNode = ctx.createGain();
     
     osc.type = type;
