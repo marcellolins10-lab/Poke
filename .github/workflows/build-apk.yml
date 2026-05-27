@@ -37,6 +37,11 @@ jobs:
       - name: Copy Assets to Capacitor Android
         run: npx cap sync android
 
+      - name: Repair Corrupt Gradle Wrapper JAR
+        run: |
+          mkdir -p android/gradle/wrapper
+          curl -sSLo android/gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.12.0/gradle/wrapper/gradle-wrapper.jar || curl -sSLo android/gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/master/gradle/wrapper/gradle-wrapper.jar
+
       - name: Build Android Debug APK
         run: |
           cd android
