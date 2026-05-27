@@ -1,0 +1,24 @@
+{
+  "name": "Poké-Gear: Relógio Pokémon",
+  "short_name": "Poké-Gear",
+  "description": "Um relógio digital retrô, alarme, cronômetro e temporizador de ovos no estilo Poké-Gear.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#222222",
+  "theme_color": "#CC0000",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "https://img.icons8.com/color/192/pokeball.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://img.icons8.com/color/512/pokeball.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
